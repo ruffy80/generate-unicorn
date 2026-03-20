@@ -4208,7 +4208,7 @@ function createStructure() {
     'VERCEL_PROJECT_ID=<YOUR_VERCEL_PROJECT_ID>'
   ].join('\n') + '\n');
 
-  writeText(path.join(ROOT, 'README.md'), '# UNICORN_FINAL\n\nGenerated automatically.\n\n## Scripts\n- npm run lint\n- npm test\n- npm start\n- npm run innovation:report\n\n## Innovation pack\n- /innovation endpoint for idea backlog\n- priority engine for selecting high-impact ideas\n- human-first safety and ethics checklist\n');
+  writeText(path.join(ROOT, 'README.md'), '# UNICORN_FINAL\n\nGenerated automatically.\n\n## Scripts\n- npm run lint\n- npm test\n- npm start\n- npm run innovation:report\n- npm run innovation:sprint\n\n## Innovation pack\n- /innovation endpoint for idea backlog\n- /innovation/sprint endpoint for execution plan\n- priority engine for selecting high-impact ideas\n- human-first safety and ethics checklist\n');
 
   writeText(path.join(ROOT, 'package.json'), JSON.stringify({
     name: 'unicorn-final',
@@ -4217,8 +4217,9 @@ function createStructure() {
     scripts: {
       start: 'node src/index.js',
       test: 'node test/health.test.js',
-      lint: 'node --check src/index.js && node --check src/innovation/innovation-engine.js && node --check test/health.test.js',
-      'innovation:report': 'node src/innovation/report.js'
+      lint: 'node --check src/index.js && node --check src/innovation/innovation-engine.js && node --check src/innovation/innovation-sprint.js && node --check test/health.test.js',
+      'innovation:report': 'node src/innovation/report.js',
+      'innovation:sprint': 'node src/innovation/sprint.js'
     }
   }, null, 2) + '\n');
 
@@ -4230,6 +4231,7 @@ function createStructure() {
 
   writeText(path.join(SRC, 'index.js'), `const http = require('http');
 const { buildInnovationReport } = require('./innovation/innovation-engine');
+const { generateSprintPlan } = require('./innovation/innovation-sprint');
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -4243,6 +4245,12 @@ const server = http.createServer((req, res) => {
     const report = buildInnovationReport();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify(report));
+  }
+
+  if (req.url === '/innovation/sprint') {
+    const sprint = generateSprintPlan();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(sprint));
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -4323,6 +4331,66 @@ const report = buildInnovationReport();
 console.log(JSON.stringify(report, null, 2));
 `);
 
+  writeText(path.join(INNOVATION, 'innovation-sprint.js'), `const { buildInnovationReport } = require('./innovation-engine');
+
+function generateSprintPlan() {
+  const report = buildInnovationReport();
+  const top = report.topPriority;
+
+  const tasks = [
+    {
+      id: 'research-problem-space',
+      title: 'Research problem boundaries and user risks',
+      owner: 'product',
+      etaDays: 2,
+      dependsOn: []
+    },
+    {
+      id: 'prototype-core-flow',
+      title: 'Prototype end-to-end core user flow',
+      owner: 'engineering',
+      etaDays: 4,
+      dependsOn: ['research-problem-space']
+    },
+    {
+      id: 'safety-and-privacy-gates',
+      title: 'Implement safety, privacy, and rollback gates',
+      owner: 'platform',
+      etaDays: 3,
+      dependsOn: ['prototype-core-flow']
+    },
+    {
+      id: 'pilot-and-measurement',
+      title: 'Run pilot and capture measurable impact metrics',
+      owner: 'operations',
+      etaDays: 5,
+      dependsOn: ['safety-and-privacy-gates']
+    }
+  ];
+
+  return {
+    generatedAt: new Date().toISOString(),
+    selectedInnovation: top,
+    sprintLengthDays: 14,
+    successMetrics: [
+      'time-to-value',
+      'safety incidents = 0',
+      'user retention uplift',
+      'operational cost delta'
+    ],
+    tasks
+  };
+}
+
+module.exports = { generateSprintPlan };
+`);
+
+  writeText(path.join(INNOVATION, 'sprint.js'), `const { generateSprintPlan } = require('./innovation-sprint');
+
+const sprint = generateSprintPlan();
+console.log(JSON.stringify(sprint, null, 2));
+`);
+
   writeText(path.join(TEST, 'health.test.js'), `const assert = require('assert');
 const server = require('../src/index');
 
@@ -4334,12 +4402,17 @@ async function run() {
   const body = await response.json();
   const innovationResponse = await fetch('http://127.0.0.1:' + port + '/innovation');
   const innovationBody = await innovationResponse.json();
+  const sprintResponse = await fetch('http://127.0.0.1:' + port + '/innovation/sprint');
+  const sprintBody = await sprintResponse.json();
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
   assert.equal(innovationResponse.status, 200);
   assert.ok(Array.isArray(innovationBody.backlog));
   assert.ok(innovationBody.backlog.length > 0);
+  assert.equal(sprintResponse.status, 200);
+  assert.ok(Array.isArray(sprintBody.tasks));
+  assert.ok(sprintBody.tasks.length >= 3);
 
   await new Promise((resolve, reject) => {
     server.close((err) => (err ? reject(err) : resolve()));
