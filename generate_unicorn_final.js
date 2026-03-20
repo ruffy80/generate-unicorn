@@ -4163,6 +4163,7 @@ const { execSync } = require('child_process');
 const ROOT = path.join(__dirname, 'UNICORN_FINAL');
 const SRC = path.join(ROOT, 'src');
 const MODULES = path.join(SRC, 'modules');
+const TEST = path.join(ROOT, 'test');
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -4174,10 +4175,15 @@ function writeText(filePath, content) {
 }
 
 function createStructure() {
+  if (fs.existsSync(ROOT)) {
+    fs.rmSync(ROOT, { recursive: true, force: true });
+  }
+
   [
     ROOT,
     SRC,
     MODULES,
+    TEST,
     path.join(ROOT, 'client', 'src', 'components'),
     path.join(ROOT, 'client', 'src', 'pages'),
     path.join(ROOT, '.github', 'workflows'),
@@ -4188,30 +4194,83 @@ function createStructure() {
     path.join(MODULES, 'code-sanity-engine')
   ].forEach(ensureDir);
 
-  writeText(path.join(ROOT, 'README.md'), '# UNICORN_FINAL\n\nGenerated automatically.\n');
+  writeText(path.join(ROOT, '.gitignore'), '.DS_Store\n.env\nnode_modules/\n.vercel/\n');
+
+  writeText(path.join(ROOT, '.env.example'), [
+    'NODE_ENV=development',
+    'PORT=3000',
+    'ADMIN_SECRET=<YOUR_ADMIN_SECRET>',
+    'GITHUB_TOKEN=<YOUR_GITHUB_TOKEN>',
+    'VERCEL_TOKEN=<YOUR_VERCEL_TOKEN>',
+    'VERCEL_ORG_ID=<YOUR_VERCEL_ORG_ID>',
+    'VERCEL_PROJECT_ID=<YOUR_VERCEL_PROJECT_ID>'
+  ].join('\n') + '\n');
+
+  writeText(path.join(ROOT, 'README.md'), '# UNICORN_FINAL\n\nGenerated automatically.\n\n## Scripts\n- npm run lint\n- npm test\n- npm start\n');
+
   writeText(path.join(ROOT, 'package.json'), JSON.stringify({
     name: 'unicorn-final',
     version: '1.0.0',
     private: true,
     scripts: {
       start: 'node src/index.js',
-      test: 'echo "No tests configured"',
-      lint: 'echo "No lint configured"'
+      test: 'node test/health.test.js',
+      lint: 'node --check src/index.js && node --check test/health.test.js'
     }
-  }, null, 2));
+  }, null, 2) + '\n');
+
+  writeText(path.join(ROOT, 'vercel.json'), JSON.stringify({
+    version: 2,
+    builds: [{ src: 'src/index.js', use: '@vercel/node' }],
+    routes: [{ src: '/(.*)', dest: '/src/index.js' }]
+  }, null, 2) + '\n');
 
   writeText(path.join(SRC, 'index.js'), `const http = require('http');
 
-http.createServer((req, res) => {
+const PORT = Number(process.env.PORT || 3000);
+
+const server = http.createServer((req, res) => {
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ ok: true }));
+    return res.end(JSON.stringify({ ok: true, service: 'unicorn-final' }));
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ app: 'UNICORN_FINAL', status: 'running' }));
-}).listen(3000, () => {
-  console.log('UNICORN_FINAL listening on http://localhost:3000');
+  return res.end(JSON.stringify({ app: 'UNICORN_FINAL', status: 'running' }));
+});
+
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log('UNICORN_FINAL listening on http://localhost:' + PORT);
+  });
+}
+
+module.exports = server;
+`);
+
+  writeText(path.join(TEST, 'health.test.js'), `const assert = require('assert');
+const server = require('../src/index');
+
+async function run() {
+  await new Promise((resolve) => server.listen(0, resolve));
+  const { port } = server.address();
+
+  const response = await fetch('http://127.0.0.1:' + port + '/health');
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+
+  await new Promise((resolve, reject) => {
+    server.close((err) => (err ? reject(err) : resolve()));
+  });
+
+  console.log('health test passed');
+}
+
+run().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });
 `);
 
@@ -4233,6 +4292,7 @@ http.createServer((req, res) => {
 on:
   push:
     branches: [main]
+  pull_request:
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -4241,7 +4301,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm ci || true
+      - run: npm ci || npm install
+      - run: npm run lint
       - run: npm test
 `);
 }
