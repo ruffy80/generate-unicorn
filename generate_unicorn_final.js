@@ -4164,6 +4164,7 @@ const ROOT = path.join(__dirname, 'UNICORN_FINAL');
 const SRC = path.join(ROOT, 'src');
 const MODULES = path.join(SRC, 'modules');
 const INNOVATION = path.join(SRC, 'innovation');
+const SITE = path.join(SRC, 'site');
 const TEST = path.join(ROOT, 'test');
 
 function ensureDir(dirPath) {
@@ -4185,6 +4186,7 @@ function createStructure() {
     SRC,
     MODULES,
     INNOVATION,
+    SITE,
     TEST,
     path.join(ROOT, 'client', 'src', 'components'),
     path.join(ROOT, 'client', 'src', 'pages'),
@@ -4208,7 +4210,7 @@ function createStructure() {
     'VERCEL_PROJECT_ID=<YOUR_VERCEL_PROJECT_ID>'
   ].join('\n') + '\n');
 
-  writeText(path.join(ROOT, 'README.md'), '# UNICORN_FINAL\n\nGenerated automatically.\n\n## Scripts\n- npm run lint\n- npm test\n- npm start\n- npm run innovation:report\n- npm run innovation:sprint\n\n## Innovation pack\n- /innovation endpoint for idea backlog\n- /innovation/sprint endpoint for execution plan\n- priority engine for selecting high-impact ideas\n- human-first safety and ethics checklist\n');
+  writeText(path.join(ROOT, 'README.md'), '# UNICORN_FINAL\n\nGenerated automatically.\n\n## Scripts\n- npm run lint\n- npm test\n- npm start\n- npm run innovation:report\n- npm run innovation:sprint\n\n## Interactive Unicorn Site\n- / serves an animated Zeus + Robot innovation dashboard\n- /snapshot auto-refresh data source for live UI\n- /modules shows all Unicorn modules status\n- /innovation and /innovation/sprint feed innovation data into the UI\n');
 
   writeText(path.join(ROOT, 'package.json'), JSON.stringify({
     name: 'unicorn-final',
@@ -4217,7 +4219,7 @@ function createStructure() {
     scripts: {
       start: 'node src/index.js',
       test: 'node test/health.test.js',
-      lint: 'node --check src/index.js && node --check src/innovation/innovation-engine.js && node --check src/innovation/innovation-sprint.js && node --check test/health.test.js',
+      lint: 'node --check src/index.js && node --check src/site/template.js && node --check src/innovation/innovation-engine.js && node --check src/innovation/innovation-sprint.js && node --check test/health.test.js',
       'innovation:report': 'node src/innovation/report.js',
       'innovation:sprint': 'node src/innovation/sprint.js'
     }
@@ -4232,8 +4234,28 @@ function createStructure() {
   writeText(path.join(SRC, 'index.js'), `const http = require('http');
 const { buildInnovationReport } = require('./innovation/innovation-engine');
 const { generateSprintPlan } = require('./innovation/innovation-sprint');
+const { getSiteHtml } = require('./site/template');
 
 const PORT = Number(process.env.PORT || 3000);
+
+const modules = [
+  { id: 'auto-deploy-orchestrator', status: 'active', purpose: 'continuous delivery' },
+  { id: 'code-sanity-engine', status: 'active', purpose: 'quality and safety checks' },
+  { id: 'innovation-engine', status: 'active', purpose: 'idea scoring and prioritization' },
+  { id: 'innovation-sprint-engine', status: 'active', purpose: 'execution planning' },
+  { id: 'zeus-experience-layer', status: 'active', purpose: 'animated AI persona interface' },
+  { id: 'robot-assistant-layer', status: 'active', purpose: 'interactive co-pilot persona' }
+];
+
+function buildSnapshot() {
+  return {
+    generatedAt: new Date().toISOString(),
+    health: { ok: true, service: 'unicorn-final' },
+    modules,
+    innovation: buildInnovationReport(),
+    sprint: generateSprintPlan()
+  };
+}
 
 const server = http.createServer((req, res) => {
   if (req.url === '/health') {
@@ -4253,8 +4275,23 @@ const server = http.createServer((req, res) => {
     return res.end(JSON.stringify(sprint));
   }
 
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  return res.end(JSON.stringify({ app: 'UNICORN_FINAL', status: 'running' }));
+  if (req.url === '/modules') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ updatedAt: new Date().toISOString(), modules }));
+  }
+
+  if (req.url === '/snapshot') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(buildSnapshot()));
+  }
+
+  if (req.url === '/' || req.url === '/index.html') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    return res.end(getSiteHtml());
+  }
+
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  return res.end(JSON.stringify({ error: 'Not found' }));
 });
 
 if (require.main === module) {
@@ -4264,6 +4301,89 @@ if (require.main === module) {
 }
 
 module.exports = server;
+`);
+
+  writeText(path.join(SITE, 'template.js'), `function getSiteHtml() {
+  return \
+'<!doctype html>' +
+'<html lang="en">' +
+'<head>' +
+'  <meta charset="utf-8" />' +
+'  <meta name="viewport" content="width=device-width,initial-scale=1" />' +
+'  <title>UNICORN ZEUS Innovation Hub</title>' +
+'  <style>' +
+'    :root { color-scheme: dark; }' +
+'    body { margin: 0; font-family: Inter, system-ui, Arial; background: radial-gradient(circle at 10% 10%, #252a4a, #090b14 50%, #05060a 100%); color: #f4f7ff; }' +
+'    .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }' +
+'    .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: stretch; }' +
+'    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(138,180,248,0.25); border-radius: 18px; padding: 16px; backdrop-filter: blur(6px); }' +
+'    .faces { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }' +
+'    .face { position: relative; height: 220px; border-radius: 16px; overflow: hidden; background: linear-gradient(145deg, rgba(19,26,58,.9), rgba(11,13,22,.9)); border: 1px solid rgba(130,196,255,.25); }' +
+'    .orb { position: absolute; width: 110px; height: 110px; border-radius: 999px; filter: blur(2px); animation: pulse 2.8s infinite ease-in-out; }' +
+'    .zeus .orb { left: 24px; top: 32px; background: radial-gradient(circle, #8bd7ff, #3b82f6 65%, #1f2a7d); box-shadow: 0 0 32px #60a5fa; }' +
+'    .robot .orb { right: 24px; top: 32px; background: radial-gradient(circle, #b2ffdb, #34d399 65%, #065f46); box-shadow: 0 0 32px #34d399; }' +
+'    .scan { position: absolute; left: 0; right: 0; top: -30%; height: 70%; background: linear-gradient(to bottom, transparent, rgba(122,212,255,.25), transparent); animation: scan 3.5s infinite linear; }' +
+'    .face h3 { position: absolute; left: 14px; bottom: 12px; margin: 0; font-size: 15px; letter-spacing: .4px; }' +
+'    .grid { margin-top: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }' +
+'    .kpi { font-size: 28px; font-weight: 700; color: #8bd7ff; }' +
+'    .small { color: #b3c0df; font-size: 13px; }' +
+'    ul { margin: 0; padding-left: 18px; }' +
+'    li { margin: 6px 0; }' +
+'    @keyframes pulse { 0%,100%{ transform: scale(1); opacity: .9; } 50% { transform: scale(1.1); opacity: 1; } }' +
+'    @keyframes scan { 0% { transform: translateY(-120%); } 100% { transform: translateY(260%); } }' +
+'    @media (max-width: 900px) { .hero, .faces, .grid { grid-template-columns: 1fr; } }' +
+'  </style>' +
+'</head>' +
+'<body>' +
+'  <div class="wrap">' +
+'    <h1>UNICORN ZEUS Innovation Hub</h1>' +
+'    <p class="small">Connected live to Unicorn core. Data auto-refreshes every 8 seconds.</p>' +
+'    <div class="hero">' +
+'      <div class="card faces">' +
+'        <div class="face zeus"><div class="orb"></div><div class="scan"></div><h3>ZEUS FACE — Strategic Intelligence</h3></div>' +
+'        <div class="face robot"><div class="orb"></div><div class="scan"></div><h3>ROBOT FACE — Execution Intelligence</h3></div>' +
+'      </div>' +
+'      <div class="card">' +
+'        <div class="small">Top innovation right now</div>' +
+'        <h2 id="topTitle">Loading...</h2>' +
+'        <p id="topProblem" class="small"></p>' +
+'        <div class="kpi" id="topScore">--</div>' +
+'      </div>' +
+'    </div>' +
+'    <div class="grid">' +
+'      <div class="card"><div class="small">Modules online</div><div id="modulesCount" class="kpi">--</div></div>' +
+'      <div class="card"><div class="small">Sprint tasks</div><div id="taskCount" class="kpi">--</div></div>' +
+'      <div class="card"><div class="small">Last update</div><div id="lastUpdate" class="small">--</div></div>' +
+'    </div>' +
+'    <div class="grid">' +
+'      <div class="card"><h3>Module Status</h3><ul id="modulesList"></ul></div>' +
+'      <div class="card"><h3>Innovation Backlog</h3><ul id="innovationList"></ul></div>' +
+'      <div class="card"><h3>Sprint Plan</h3><ul id="sprintList"></ul></div>' +
+'    </div>' +
+'  </div>' +
+'  <script>' +
+'    async function refresh() {' +
+'      const res = await fetch("/snapshot");' +
+'      const data = await res.json();' +
+'      const top = data.innovation.topPriority || {};' +
+'      document.getElementById("topTitle").textContent = top.title || "No priority";' +
+'      document.getElementById("topProblem").textContent = top.problem || "";' +
+'      document.getElementById("topScore").textContent = (top.score || 0).toString();' +
+'      document.getElementById("modulesCount").textContent = data.modules.length.toString();' +
+'      document.getElementById("taskCount").textContent = data.sprint.tasks.length.toString();' +
+'      document.getElementById("lastUpdate").textContent = data.generatedAt;' +
+'      document.getElementById("modulesList").innerHTML = data.modules.map(function(m){ return "<li><b>" + m.id + "</b> — " + m.status + " — " + m.purpose + "</li>"; }).join("");' +
+'      document.getElementById("innovationList").innerHTML = data.innovation.backlog.map(function(i){ return "<li><b>" + i.title + "</b> (score " + i.score + ")</li>"; }).join("");' +
+'      document.getElementById("sprintList").innerHTML = data.sprint.tasks.map(function(t){ return "<li><b>" + t.title + "</b> — " + t.owner + " (" + t.etaDays + "d)</li>"; }).join("");' +
+'    }' +
+'    refresh();' +
+'    setInterval(refresh, 8000);' +
+'  </script>' +
+'</body>' +
+'</html>';
+}
+
+module.exports = { getSiteHtml };
 `);
 
   writeText(path.join(INNOVATION, 'innovation-engine.js'), `function scoreIdea(idea) {
@@ -4404,6 +4524,12 @@ async function run() {
   const innovationBody = await innovationResponse.json();
   const sprintResponse = await fetch('http://127.0.0.1:' + port + '/innovation/sprint');
   const sprintBody = await sprintResponse.json();
+  const modulesResponse = await fetch('http://127.0.0.1:' + port + '/modules');
+  const modulesBody = await modulesResponse.json();
+  const snapshotResponse = await fetch('http://127.0.0.1:' + port + '/snapshot');
+  const snapshotBody = await snapshotResponse.json();
+  const siteResponse = await fetch('http://127.0.0.1:' + port + '/');
+  const siteHtml = await siteResponse.text();
 
   assert.equal(response.status, 200);
   assert.equal(body.ok, true);
@@ -4413,6 +4539,15 @@ async function run() {
   assert.equal(sprintResponse.status, 200);
   assert.ok(Array.isArray(sprintBody.tasks));
   assert.ok(sprintBody.tasks.length >= 3);
+  assert.equal(modulesResponse.status, 200);
+  assert.ok(Array.isArray(modulesBody.modules));
+  assert.ok(modulesBody.modules.length >= 4);
+  assert.equal(snapshotResponse.status, 200);
+  assert.ok(Array.isArray(snapshotBody.modules));
+  assert.ok(snapshotBody.sprint.tasks.length >= 3);
+  assert.equal(siteResponse.status, 200);
+  assert.ok(siteHtml.includes('ZEUS FACE'));
+  assert.ok(siteHtml.includes('ROBOT FACE'));
 
   await new Promise((resolve, reject) => {
     server.close((err) => (err ? reject(err) : resolve()));
